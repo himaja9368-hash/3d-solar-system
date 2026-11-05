@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive 3D Solar System & Student Learning Hub</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #03050b;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+    #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+    
+    #ui-header {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 10;
+      background: rgba(10, 15, 30, 0.85);
+      padding: 12px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+    }
+    #ui-header h1 { margin: 0 0 4px 0; font-size: 20px; color: #4da6ff; }
+    #ui-header p { margin: 0; font-size: 13px; color: #aaa; }
+
+    /* Score & Badge Tracker */
+    #score-board {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 10;
+      background: rgba(10, 15, 30, 0.85);
+      padding: 10px 18px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(77, 166, 255, 0.3);
+      font-size: 14px;
+      font-weight: bold;
+      color: #f6e05e;
+    }
+
+    /* Control Panel */
+    #controls-bar {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(10, 15, 30, 0.85);
+      padding: 10px 20px;
+      border-radius: 35px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+    .btn {
+      background: linear-gradient(135deg, #2a4365 0%, #1a202c 100%);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #3182ce; border-color: #63b3ed; }
+    .btn-quiz { background: linear-gradient(135deg, #742a2a 0%, #9b2c2c 100%); }
+    .btn-quiz:hover { background: #e53e3e; }
+    .btn-flash { background: linear-gradient(135deg, #276749 0%, #22543d 100%); }
+    .btn-flash:hover { background: #38a169; }
+    
+    .speed-control { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e0; }
+    .speed-control input { cursor: pointer; accent-color: #4da6ff; }
+
+    /* Hover Tooltip */
+    #tooltip {
+      position: absolute; display: none; background: rgba(0, 0, 0, 0.85);
+      border: 1px solid #4da6ff; color: #fff; padding: 5px 10px;
+      border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 50;
+      transform: translate(-50%, -150%);
+    }
+
+    /* Planet Info Modal */
+    #info-modal, #flashcard-modal, #quiz-modal {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 7, 15, 0.8); z-index: 100; display: none;
+      justify-content: center; align-items: center; backdrop-filter: blur(10px);
+    }
+    .modal-card {
+      background: #111827; border: 1px solid rgba(77, 166, 255, 0.3);
+      width: 90%; max-width: 520px; border-radius: 20px; padding: 30px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8); position: relative; max-height: 90vh; overflow-y: auto;
+    }
+    .close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: #888; font-size: 24px; cursor: pointer; }
+    .close-btn:hover { color: #fff; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+    .stat-box { background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
+    .stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+    .stat-val { font-size: 13px; font-weight: 600; color: #e2e8f0; margin-top: 4px; }
+    .info-section { margin-top: 15px; }
+    .info-section h3 { font-size: 14px; color: #cbd5e0; margin-bottom: 6px; }
+    .info-section p { font-size: 13px; line-height: 1.5; color: #a0aec0; margin: 0; }
+
+    /* Flashcard Styles */
+    .flashcard {
+      background: #1f2937; border: 2px dashed #4da6ff; border-radius: 15px;
+      padding: 30px; text-align: center; min-height: 180px; display: flex;
+      flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+      margin: 20px 0; transition: 0.3s;
+    }
+    .flashcard:hover { border-color: #63b3ed; background: #2d3748; }
+    .flash-title { font-size: 20px; color: #4da6ff; font-weight: bold; margin-bottom: 10px; }
+    .flash-content { font-size: 15px; color: #e5e7eb; }
+
+    /* Quiz Styles */
+    .quiz-question { font-size: 17px; line-height: 1.4; margin-bottom: 18px; color: #f3f4f6; }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+    .quiz-option { background: #1f2937; border: 1px solid #374151; padding: 12px 16px; border-radius: 10px; color: #e5e7eb; font-size: 14px; cursor: pointer; text-align: left; transition: 0.2s; }
+    .quiz-option:hover { background: #374151; border-color: #60a5fa; }
+    .quiz-option.correct { background: #065f46 !important; border-color: #10b981 !important; }
+    .quiz-option.wrong { background: #991b1b !important; border-color: #ef4444 !important; }
+    .quiz-feedback { margin-top: 15px; font-size: 13px; line-height: 1.4; padding: 10px; border-radius: 8px; display: none; }
+    .correct-bg { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .wrong-bg { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+  <div id="tooltip">Planet</div>
+
+  <div id="ui-header">
+    <h1>Solar System Study Hub</h1>
+    <p>Click any planet to inspect & learn | Use flashcards & randomized quizzes</p>
+  </div>
+
+  <div id="score-board">⭐ Score: <span id="scoreVal">0</span></div>
+
+  <div id="controls-bar">
+    <button class="btn" id="pauseBtn">⏸️ Pause</button>
+    <div class="speed-control">
+      <label for="speedRange">Speed:</label>
+      <input type="range" id="speedRange" min="0.1" max="5" step="0.1" value="1">
+    </div>
+    <button class="btn btn-flash" id="flashCardBtn">📇 Flashcards</button>
+    <button class="btn btn-quiz" id="quizBtn">🧠 Student Quiz</button>
+    <button class="btn" id="resetCamBtn">🔭 Reset View</button>
+  </div>
+
+  <!-- Planet Info Modal -->
+  <div id="info-modal">
+    <div class="modal-card">
+      <button class="close-btn" id="closeInfoModal">&times;</button>
+      <h2 id="planetName" style="color: #4da6ff; margin-top:0;">Planet</h2>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">Distance</div><div class="stat-val" id="statDistance">-</div></div>
+        <div class="stat-box"><div class="stat-label">Moons</div><div class="stat-val" id="statMoons">-</div></div>
+        <div class="stat-box"><div class="stat-label">Temp</div><div class="stat-val" id="statTemp">-</div></div>
+        <div class="stat-box"><div class="stat-label">Orbit Time</div><div class="stat-val" id="statPeriod">-</div></div>
+      </div>
+      <div class="info-section"><h3>Overview</h3><p id="planetOverview">-</p></div>
+      <div class="info-section"><h3>Atmosphere</h3><p id="planetAtmosphere">-</p></div>
+      <div class="info-section"><h3>Fun Fact</h3><p id="planetFact">-</p></div>
+    </div>
+  </div>
+
+  <!-- Flashcards Modal -->
+  <div id="flashcard-modal">
+    <div class="modal-card" style="text-align: center;">
+      <button class="close-btn" id="closeFlashModal">&times;</button>
+      <h2 style="color: #4da6ff; margin-top:0;">Astronomy Flashcards</h2>
+      <p style="font-size: 13px; color: #aaa;">Click the card to flip between Question and Answer!</p>
+      
+      <div class="flashcard" id="flashcardElement">
+        <div class="flash-title" id="flashTitle">Loading...</div>
+        <div class="flash-content" id="flashContent">Click to reveal answer.</div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+        <button class="btn" id="prevCard">⬅️ Previous</button>
+        <button class="btn" id="nextCard">Next ➡️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Modal -->
+  <div id="quiz-modal">
+    <div class="modal-card">
+      <button class="close-btn" id="closeQuizModal">&times;</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px;">
+        <div style="font-weight: bold; color: #4da6ff;">Solar System Challenge Quiz</div>
+        <div id="quizProgress" style="font-size: 13px; color: #9ca3af;">Question 1 of 5</div>
+      </div>
+      <div id="quizContent">
+        <div class="quiz-question" id="quizQuestion"></div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+        <button class="btn" id="quizNextBtn" style="margin-top: 20px; float: right; display: none;">Next Question</button>
+      </div>
+      <div id="quizResults" style="display: none; text-align: center;">
+        <h2 style="color: #4da6ff;">Quiz Completed!</h2>
+        <p id="quizScoreText" style="font-size: 18px; margin: 20px 0;"></p>
+        <button class="btn" id="restartQuizBtn" style="margin: 0 auto; display: block;">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let score = 0;
+    const scoreVal = document.getElementById('scoreVal');
+
+    const planetData = [
+      { name: "Mercury", size: 0.8, distance: 12, color: 0xa5a5a5, speed: 0.03, stats: { dist: "57.9M km", moons: "0", temp: "-180°C to 430°C", period: "88 days" }, overview: "Smallest planet and closest to the Sun.", atmosphere: "Thin exosphere.", fact: "Has the most extreme temperature fluctuations." },
+      { name: "Venus", size: 1.3, distance: 18, color: 0xe3bb76, speed: 0.015, stats: { dist: "108.2M km", moons: "0", temp: "465°C", period: "225 days" }, overview: "Hottest planet due to greenhouse gases.", atmosphere: "Thick carbon dioxide & sulfuric acid.", fact: "Spins in the opposite direction of most planets." },
+      { name: "Earth", size: 1.4, distance: 25, color: 0x2277ff, speed: 0.01, stats: { dist: "149.6M km", moons: "1", temp: "-88°C to 58°C", period: "365 days" }, overview: "Our home world, harboring abundant liquid water.", atmosphere: "Nitrogen and Oxygen.", fact: "The only planet not named after a mythological god." },
+      { name: "Mars", size: 1.0, distance: 32, color: 0xcc4400, speed: 0.008, stats: { dist: "227.9M km", moons: "2", temp: "-153°C to 20°C", period: "687 days" }, overview: "The Red Planet, cold and desert-like.", atmosphere: "Thin carbon dioxide.", fact: "Home to Olympus Mons, the solar system's tallest volcano." },
+      { name: "Jupiter", size: 3.5, distance: 44, color: 0xd8ca9d, speed: 0.003, stats: { dist: "778.5M km", moons: "95+", temp: "-110°C", period: "11.8 years" }, overview: "Massive gas giant with double the mass of all other planets.", atmosphere: "Hydrogen and Helium.", fact: "Features the Great Red Spot, a storm larger than Earth." },
+      { name: "Saturn", size: 2.8, distance: 58, color: 0xead6b8, speed: 0.0015, hasRings: true, stats: { dist: "1.4B km", moons: "146+", temp: "-140°C", period: "29.5 years" }, overview: "Gas giant with a magnificent ring system.", atmosphere: "Hydrogen and Helium.", fact: "Saturn would float if placed in a giant body of water!" },
+      { name: "Uranus", size: 2.0, distance: 70, color: 0x4b70dd, speed: 0.0008, stats: { dist: "2.9B km", moons: "28", temp: "-195°C", period: "84 years" }, overview: "Ice giant that spins completely on its side.", atmosphere: "Hydrogen, Helium, and Methane.", fact: "Methane gas gives Uranus its peaceful blue-green color." },
+      { name: "Neptune", size: 1.9, distance: 82, color: 0x274687, speed: 0.0004, stats: { dist: "4.5B km", moons: "16", temp: "-200°C", period: "165 years" }, overview: "Distant, dark ice giant whipped by supersonic winds.", atmosphere: "Hydrogen, Helium, and Methane.", fact: "Has winds reaching up to 2,100 km/h." },
+      { name: "Pluto (Dwarf)", size: 0.6, distance: 94, color: 0xcdb79e, speed: 0.0002, stats: { dist: "5.9B km", moons: "5", temp: "-230°C", period: "248 years" }, overview: "A distant dwarf planet located in the Kuiper Belt.", atmosphere: "Nitrogen, methane, and carbon monoxide thin envelope.", fact: "Reclassified as a dwarf planet by the IAU in 2006." }
+    ];
+
+    const flashcards = [
+      { q: "Which planet is closest to the Sun?", a: "Mercury" },
+      { q: "What planet is known as the Red Planet?", a: "Mars" },
+      { q: "Which planet is famous for its large icy rings?", a: "Saturn" },
+      { q: "Which planet is the hottest in the solar system?", a: "Venus (due to a runaway greenhouse effect)" },
+      { q: "Why was Pluto reclassified in 2006?", a: "It is a Dwarf Planet located in the Kuiper Belt." }
+    ];
+
+    // Expanded Question Bank (15 Questions)
+    const allQuizQuestions = [
+      { question: "Which planet is the hottest in our solar system?", options: ["Mercury", "Venus", "Mars", "Jupiter"], correct: 1, rationale: "Venus traps heat effectively via its dense carbon dioxide atmosphere." },
+      { question: "Which planet spins completely on its side?", options: ["Saturn", "Neptune", "Uranus", "Earth"], correct: 2, rationale: "Uranus has an extreme 98-degree axial tilt." },
+      { question: "What is the largest volcano in the solar system?", options: ["Mauna Kea", "Olympus Mons", "Elysium Mons", "Mount Everest"], correct: 1, rationale: "Olympus Mons on Mars is nearly three times taller than Mount Everest." },
+      { question: "Which dwarf planet is located in the Kuiper Belt?", options: ["Ceres", "Pluto", "Eris", "Haumea"], correct: 1, rationale: "Pluto is a famous dwarf planet in the Kuiper Belt." },
+      { question: "Which planet is closest to the Sun?", options: ["Venus", "Mercury", "Earth", "Mars"], correct: 1, rationale: "Mercury is the closest planet to the Sun." },
+      { question: "Which planet has the Great Red Spot?", options: ["Saturn", "Jupiter", "Neptune", "Mars"], correct: 1, rationale: "Jupiter hosts the Great Red Spot, a massive storm." },
+      { question: "Which planet is famous for being less dense than water?", options: ["Saturn", "Uranus", "Jupiter", "Neptune"], correct: 0, rationale: "Saturn is composed mostly of light gases and would float in water." },
+      { question: "Where is the Asteroid Belt primarily located?", options: ["Between Earth and Mars", "Between Mars and Jupiter", "Beyond Neptune", "Between Venus and Earth"], correct: 1, rationale: "The Asteroid Belt lies in the region between the orbits of Mars and Jupiter." },
+      { question: "What gas gives Uranus and Neptune their blue-green color?", options: ["Oxygen", "Methane", "Carbon Dioxide", "Nitrogen"], correct: 1, rationale: "Methane gas absorbs red light and reflects blue light." },
+      { question: "Which planet is nicknamed the 'Blue Planet'?", options: ["Neptune", "Earth", "Uranus", "Saturn"], correct: 1, rationale: "Earth is called the Blue Planet because of its abundant surface water." },
+      { question: "How many moons does Mars have?", options: ["Zero", "One", "Two", "Fourteen"], correct: 2, rationale: "Mars has two small moons named Phobos and Deimos." },
+      { question: "Which planet has the fastest winds in the solar system?", options: ["Jupiter", "Neptune", "Saturn", "Mercury"], correct: 1, rationale: "Neptune's winds can reach up to 2,100 km/h." },
+      { question: "Which planet takes approximately 88 Earth days to complete one orbit around the Sun?", options: ["Mercury", "Venus", "Mars", "Earth"], correct: 0, rationale: "Mercury has the shortest year in the solar system." },
+      { question: "In what year was Pluto reclassified as a dwarf planet?", options: ["1995", "2000", "2006", "2012"], correct: 2, rationale: "The International Astronomical Union reclassified Pluto in 2006." },
+      { question: "Which planet's day is longer than its year?", options: ["Mercury", "Venus", "Mars", "Jupiter"], correct: 1, rationale: "Venus takes 243 Earth days to rotate once on its axis, but only 225 days to orbit the Sun." }
+    ];
+
+    let currentQuizQuestions = [];
+
+    // Setup 3D Scene
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    camera.position.set(0, 50, 110);
+    controls.update();
+
+    scene.add(new THREE.AmbientLight(0x444444));
+    scene.add(new THREE.PointLight(0xffffff, 2, 500));
+
+    // Sun
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(6.5, 32, 32), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+    scene.add(sun);
+
+    // Asteroid Belt between Mars (32) and Jupiter (44)
+    const asteroidGeo = new THREE.BufferGeometry();
+    const asteroidPos = [];
+    for(let i=0; i<400; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 36 + Math.random() * 5;
+      asteroidPos.push(Math.cos(angle) * r, (Math.random() - 0.5) * 1.2, Math.sin(angle) * r);
+    }
+    asteroidGeo.setAttribute('position', new THREE.Float32BufferAttribute(asteroidPos, 3));
+    scene.add(new THREE.Points(asteroidGeo, new THREE.PointsMaterial({ color: 0x888888, size: 0.3 })));
+
+    // Planets
+    const planetMeshes = [];
+    planetData.forEach(data => {
+      const pts = [];
+      for (let i = 0; i <= 128; i++) {
+        const theta = (i / 128) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(theta) * data.distance, 0, Math.sin(theta) * data.distance));
+      }
+      scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 })));
+
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(data.size, 32, 32), new THREE.MeshStandardMaterial({ color: data.color, roughness: 0.7 }));
+      if (data.hasRings) {
+        const ring = new THREE.Mesh(new THREE.RingGeometry(data.size + 0.8, data.size + 2.5, 32), new THREE.MeshBasicMaterial({ color: 0xa6987e, side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
+        ring.rotation.x = Math.PI / 2;
+        mesh.add(ring);
+      }
+      scene.add(mesh);
+      planetMeshes.push({ mesh, data, angle: Math.random() * Math.PI * 2 });
+    });
+
+    let isPaused = false;
+    let timeSpeed = 1.0;
+    let focusedPlanet = null;
+
+    document.getElementById('pauseBtn').onclick = (e) => {
+      isPaused = !isPaused;
+      e.target.textContent = isPaused ? "▶️ Resume" : "⏸️ Pause";
+    };
+    document.getElementById('speedRange').oninput = (e) => { timeSpeed = parseFloat(e.target.value); };
+    document.getElementById('resetCamBtn').onclick = () => {
+      focusedPlanet = null;
+      camera.position.set(0, 50, 110);
+      controls.target.set(0,0,0);
+    };
+
+    // Raycasting & Interaction
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+
+    window.onmousemove = (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(planetMeshes.map(p => p.mesh));
+
+      if (intersects.length > 0) {
+        const hit = planetMeshes.find(p => p.mesh === intersects[0].object);
+        if (hit) {
+          tooltip.textContent = hit.data.name;
+          tooltip.style.display = 'block';
+          tooltip.style.left = e.clientX + 'px';
+          tooltip.style.top = e.clientY + 'px';
+          document.body.style.cursor = 'pointer';
+        }
+      } else {
+        tooltip.style.display = 'none';
+        document.body.style.cursor = 'default';
+      }
+    };
+
+    window.onclick = (e) => {
+      if (e.target.closest('.modal-card') || e.target.closest('#controls-bar')) return;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(planetMeshes.map(p => p.mesh));
+      if (intersects.length > 0) {
+        const selected = planetMeshes.find(p => p.mesh === intersects[0].object);
+        if (selected) {
+          focusedPlanet = selected;
+          showPlanetInfo(selected.data);
+          score += 5;
+          scoreVal.textContent = score;
+        }
+      }
+    };
+
+    function showPlanetInfo(data) {
+      document.getElementById('planetName').textContent = data.name;
+      document.getElementById('statDistance').textContent = data.stats.dist;
+      document.getElementById('statMoons').textContent = data.stats.moons;
+      document.getElementById('statTemp').textContent = data.stats.temp;
+      document.getElementById('statPeriod').textContent = data.stats.period;
+      document.getElementById('planetOverview').textContent = data.overview;
+      document.getElementById('planetAtmosphere').textContent = data.atmosphere;
+      document.getElementById('planetFact').textContent = data.fact;
+      document.getElementById('info-modal').style.display = 'flex';
+    }
+    document.getElementById('closeInfoModal').onclick = () => { document.getElementById('info-modal').style.display = 'none'; };
+
+    // Flashcard Logic
+    let currentCardIdx = 0;
+    let showingAnswer = false;
+    const flashModal = document.getElementById('flashcard-modal');
+    const flashTitle = document.getElementById('flashTitle');
+    const flashContent = document.getElementById('flashContent');
+
+    document.getElementById('flashCardBtn').onclick = () => {
+      currentCardIdx = 0; showingAnswer = false;
+      updateCard();
+      flashModal.style.display = 'flex';
+    };
+    document.getElementById('closeFlashModal').onclick = () => { flashModal.style.display = 'none'; };
+
+    function updateCard() {
+      const card = flashcards[currentCardIdx];
+      if (!showingAnswer) {
+        flashTitle.textContent = "Question:";
+        flashContent.textContent = card.q;
+      } else {
+        flashTitle.textContent = "Answer:";
+        flashContent.textContent = card.a;
+      }
+    }
+    document.getElementById('flashcardElement').onclick = () => { showingAnswer = !showingAnswer; updateCard(); };
+    document.getElementById('nextCard').onclick = () => { currentCardIdx = (currentCardIdx + 1) % flashcards.length; showingAnswer = false; updateCard(); };
+    document.getElementById('prevCard').onclick = () => { currentCardIdx = (currentCardIdx - 1 + flashcards.length) % flashcards.length; showingAnswer = false; updateCard(); };
+
+    // Quiz Logic with Random Shuffling (No Repeat Guarantee per Session)
+    let curQ = 0, quizScore = 0;
+    const quizModal = document.getElementById('quiz-modal');
+
+    document.getElementById('quizBtn').onclick = () => {
+      curQ = 0; quizScore = 0;
+      // Shuffle array and pick 5 unique random questions per round
+      currentQuizQuestions = [...allQuizQuestions].sort(() => 0.5 - Math.random()).slice(0, 5);
+      
+      document.getElementById('quizContent').style.display = 'block';
+      document.getElementById('quizResults').style.display = 'none';
+      loadQ();
+      quizModal.style.display = 'flex';
+    };
+    document.getElementById('closeQuizModal').onclick = () => { quizModal.style.display = 'none'; };
+
+    function loadQ() {
+      const q = currentQuizQuestions[curQ];
+      document.getElementById('quizProgress').textContent = `Question ${curQ + 1} of ${currentQuizQuestions.length}`;
+      document.getElementById('quizQuestion').textContent = q.question;
+      const opts = document.getElementById('quizOptions');
+      opts.innerHTML = '';
+      document.getElementById('quizFeedback').style.display = 'none';
+      document.getElementById('quizNextBtn').style.display = 'none';
+
+      q.options.forEach((opt, idx) => {
+        const b = document.createElement('button');
+        b.className = 'quiz-option';
+        b.textContent = opt;
+        b.onclick = () => {
+          const allOpts = opts.children;
+          for(let i=0; i<allOpts.length; i++) {
+            allOpts[i].disabled = true;
+            if(i === q.correct) allOpts[i].classList.add('correct');
+            if(i === idx && idx !== q.correct) allOpts[i].classList.add('wrong');
+          }
+          const fb = document.getElementById('quizFeedback');
+          if(idx === q.correct) { 
+            quizScore++; score += 10; scoreVal.textContent = score;
+            fb.className = 'quiz-feedback correct-bg'; fb.textContent = 'Correct! ' + q.rationale; 
+          } else { 
+            fb.className = 'quiz-feedback wrong-bg'; fb.textContent = 'Incorrect. ' + q.rationale; 
+          }
+          fb.style.display = 'block';
+          document.getElementById('quizNextBtn').style.display = 'block';
+        };
+        opts.appendChild(b);
+      });
+    }
+
+    document.getElementById('quizNextBtn').onclick = () => {
+      curQ++;
+      if(curQ < currentQuizQuestions.length) loadQ();
+      else {
+        document.getElementById('quizContent').style.display = 'none';
+        document.getElementById('quizResults').style.display = 'block';
+        document.getElementById('quizScoreText').textContent = `You scored ${quizScore} out of ${currentQuizQuestions.length}!`;
+      }
+    };
+    document.getElementById('restartQuizBtn').onclick = () => {
+      curQ = 0; quizScore = 0;
+      currentQuizQuestions = [...allQuizQuestions].sort(() => 0.5 - Math.random()).slice(0, 5);
+      document.getElementById('quizContent').style.display = 'block';
+      document.getElementById('quizResults').style.display = 'none';
+      loadQ();
+    };
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      sun.rotation.y += 0.002 * timeSpeed;
+
+      planetMeshes.forEach(p => {
+        if (!isPaused) {
+          p.angle += p.data.speed * timeSpeed * 0.8;
+          p.mesh.position.x = Math.cos(p.angle) * p.data.distance;
+          p.mesh.position.z = Math.sin(p.angle) * p.data.distance;
+        }
+        p.mesh.rotation.y += 0.01;
+      });
+
+      if (focusedPlanet) {
+        controls.target.lerp(focusedPlanet.mesh.position, 0.1);
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.onresize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+  </script>
+</body>
+</html>
